@@ -1,10 +1,15 @@
+# ===============================
+# Imports
+# ===============================
+import os
+import numpy as np
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, WeightedRandomSampler
-import numpy as np
-import os
+from torchvision import datasets, transforms
+from sklearn.metrics import classification_report, confusion_matrix
 
 # ===============================
 # 1. Arquitectura CNN
@@ -15,7 +20,7 @@ class EnemyCNN(nn.Module):
         self.conv1 = nn.Conv2d(3, 32, 3, padding=1)
         self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
         self.conv3 = nn.Conv2d(64, 128, 3, padding=1)
-        self.pool = nn.MaxPool2d(2,2)
+        self.pool = nn.MaxPool2d(2, 2)
         
         self.fc1 = nn.Linear(128*16*16, 512)
         self.fc2 = nn.Linear(512, 1)
@@ -24,7 +29,7 @@ class EnemyCNN(nn.Module):
         self.dropout = nn.Dropout(0.5)
         self.sigmoid = nn.Sigmoid()
         
-    def forward(self,x):
+    def forward(self, x):
         x = self.pool(self.relu(self.conv1(x)))
         x = self.pool(self.relu(self.conv2(x)))
         x = self.pool(self.relu(self.conv3(x)))
@@ -37,24 +42,24 @@ class EnemyCNN(nn.Module):
 # ===============================
 # 2. Configuración dataset
 # ===============================
-dataset_path = r"C:\Users\lilia\OneDrive\Escritorio\ahl\Mai\aprendizaje_profundo_b\dataset"
+dataset_path = os.path.join(os.path.dirname(__file__), "dataset")
 
 train_transform = transforms.Compose([
-    transforms.Resize((128,128)),
+    transforms.Resize((128, 128)),
     transforms.RandomHorizontalFlip(),
     transforms.RandomRotation(10),
     transforms.ToTensor(),
-    transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 ])
 
 test_transform = transforms.Compose([
-    transforms.Resize((128,128)),
+    transforms.Resize((128, 128)),
     transforms.ToTensor(),
-    transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 ])
 
-train_dataset = datasets.ImageFolder(os.path.join(dataset_path,"train"), transform=train_transform)
-test_dataset = datasets.ImageFolder(os.path.join(dataset_path,"test"), transform=test_transform)
+train_dataset = datasets.ImageFolder(os.path.join(dataset_path, "train"), transform=train_transform)
+test_dataset = datasets.ImageFolder(os.path.join(dataset_path, "test"), transform=test_transform)
 
 # ===============================
 # 2a. WeightedRandomSampler para balancear clases
@@ -79,7 +84,7 @@ model = EnemyCNN().to(device)
 criterion = nn.BCELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-epochs = 10
+epochs = 22
 for epoch in range(epochs):
     model.train()
     running_loss = 0.0
@@ -110,17 +115,17 @@ for epoch in range(epochs):
     print(f"Epoch {epoch+1}/{epochs}, Loss: {running_loss/len(train_loader):.4f}")
     for cls in train_dataset.classes:
         if class_total[cls] > 0:
-            acc = 100*class_correct[cls]/class_total[cls]
+            acc = 100 * class_correct[cls] / class_total[cls]
             print(f"  📌 Train clase '{cls}': {acc:.2f}% ({class_correct[cls]}/{class_total[cls]})")
 
 # ===============================
 # 4. Evaluación en test
 # ===============================
-idx_to_class = {v:k for k,v in train_dataset.class_to_idx.items()}
+idx_to_class = {v: k for k, v in train_dataset.class_to_idx.items()}
 model.eval()
-correct, total = 0,0
-class_correct = {cls:0 for cls in test_dataset.classes}
-class_total = {cls:0 for cls in test_dataset.classes}
+correct, total = 0, 0
+class_correct = {cls: 0 for cls in test_dataset.classes}
+class_total = {cls: 0 for cls in test_dataset.classes}
 
 with torch.no_grad():
     for images, labels in test_loader:
@@ -141,18 +146,13 @@ with torch.no_grad():
                 
 print(f"\n🔎 Precisión total en test: {100*correct/total:.2f}%")
 for cls in test_dataset.classes:
-    if class_total[cls]>0:
-        acc = 100*class_correct[cls]/class_total[cls]
+    if class_total[cls] > 0:
+        acc = 100 * class_correct[cls] / class_total[cls]
         print(f"📂 Clase '{cls}': {acc:.2f}% ({class_correct[cls]}/{class_total[cls]})")
 
-import matplotlib.pyplot as plt
-import numpy as np
-
-# Diccionario: índice de clase → nombre de clase (enemigos / no_enemigos)
-idx_to_class = {v: k for k, v in train_dataset.class_to_idx.items()}
-
-import matplotlib.pyplot as plt
-
+# ===============================
+# 5. Predicciones por imagen
+# ===============================
 model.eval()
 with torch.no_grad():
     for i, (images, labels) in enumerate(test_loader):
@@ -168,15 +168,9 @@ with torch.no_grad():
                   f"Real = {idx_to_class[true_label]}, "
                   f"Predicho = {idx_to_class[pred_label]}")
 
-
-
-
-from sklearn.metrics import classification_report, confusion_matrix
-import numpy as np
-
-# Diccionario de índice → nombre de clase
-idx_to_class = {v: k for k, v in train_dataset.class_to_idx.items()}
-
+# ===============================
+# 6. Reporte y Matriz de confusión
+# ===============================
 all_preds = []
 all_labels = []
 
